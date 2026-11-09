@@ -1,0 +1,3 @@
+[submodule "externals/wet"]
+	path = externals/wet
+	url = https://github.com/waefrebeorn/WET.git
