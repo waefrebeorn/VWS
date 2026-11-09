@@ -1,0 +1,200 @@
+-- designer.wet -- the VWS form designer.
+--
+-- This file IS the designer, written in the stack it designs for: Lua over
+-- .WET, driving the same VwsForm the loader and emitter use through vws.*.
+-- That is the circular framework made literal -- the tool that builds the GUI
+-- is built from the GUI framework.
+--
+-- Layout:
+--   +----------+----------------------------------------+------------+
+--   | palette  |  form surface (a wet.canvas whose      | properties |
+--   |          |  children ARE the form's controls)     |            |
+--   +----------+----------------------------------------+------------+
+--   | status                          [Save] [Load]                    |
+--   +-------------------------------------------------------------+
+--
+-- Loop: click a palette entry to add, click a control to select, drag to move,
+-- edit a property, Save.
+
+local surface = nil
+local sel     = nil      -- selected control id
+local drag    = nil      -- { id, dx, dy } while dragging
+local next_id = 1        -- auto-numbering for new controls
+
+-- The designer's chrome ids.  Everything is created at runtime with
+-- wet.create, then attached -- the same API the generated applets use.
+local CHROME = { "title", "body", "palette", "surface", "props",
+                 "bar", "status", "save", "load" }
+
+local function say(msg)
+  local s = wet.find("status")
+  if s then s.text = msg end
+end
+
+-- Rebuild the surface from the document: every control in the VWS form becomes
+-- a real .WET widget on the canvas, so the designer previews exactly what will
+-- run.  No separate preview renderer to drift.
+local function rebuild()
+  if not surface then return end
+  local list = vws.controls()
+  for i = 1, #list do
+    local w = wet.find(list[i].id)
+    if w then wet.detach(w) end
+  end
+  for i = 1, #list do
+    local c = list[i]
+    local w = wet.create(c.class, c.id)
+    if w then
+      w.left, w.top, w.w, w.h = c.left, c.top, c.w, c.h
+      if c.text ~= "" then w.text = c.text end
+      wet.attach(surface, w)
+    end
+  end
+end
+
+local function add_control(cls, label, w, h)
+  local id = cls .. next_id
+  next_id = next_id + 1
+  if vws.add(id, cls, 24, 24, w, h) then
+    vws.settext(id, label)
+    sel = id
+    rebuild()
+    show_props()
+    say("added " .. id)
+  else
+    say("cannot add " .. id .. ": " .. tostring(vws.err()))
+  end
+end
+
+-- ------------------------------------------------------------- chrome ----
+
+wet.applet {
+  title  = "VWS Designer",
+  width  = 900,
+  height = 620,
+  content = wet.canvas { id = "root", children = {} },
+}
+
+local root = wet.find("root")   -- the applet's content canvas
+
+-- The applet block above has no ids, so build the chrome explicitly.
+-- (A .wet applet block is for applets; the designer builds its own tree.)
+
+local function make(id, cls, props)
+  local w = wet.create(cls, id)
+  if w and props then
+    for k, v in pairs(props) do w[k] = v end
+  end
+  return w
+end
+
+local title   = make("title",   "label",  { text = "VWS -- Visual WuBu System" })
+local body    = make("body",    "stack",  { orient = 1, spacing = 4 })
+local palette = make("palette", "stack",  { spacing = 2 })
+local surface = make("surface", "canvas", {})
+local props   = make("props",   "stack",  { spacing = 2 })
+local bar     = make("bar",     "stack",  { orient = 1, spacing = 4 })
+local status  = make("status",  "label",  { text = "ready" })
+local save    = make("save",    "button", { text = "Save" })
+local load    = make("load",    "button", { text = "Load" })
+
+wet.attach(root, title)
+wet.attach(root, body)
+wet.attach(body, palette)
+wet.attach(body, surface)
+wet.attach(body, props)
+wet.attach(root, bar)
+wet.attach(bar, status)
+wet.attach(bar, save)
+wet.attach(bar, load)
+
+save.onclick = function(self)
+  if vws.save("/tmp/Form1.vws") then
+    say("saved /tmp/Form1.vws")
+  else
+    say("save failed: " .. tostring(vws.err()))
+  end
+end
+
+load.onclick = function(self)
+  if vws.load("/tmp/Form1.vws") then
+    rebuild(); show_props(); say("loaded /tmp/Form1.vws")
+  else
+    say("load failed: " .. tostring(vws.err()))
+  end
+end
+
+-- Palette entries, from the document model's own palette.
+do
+  local pal = vws.palette()
+  for i = 1, #pal do
+    local b = make("pal_" .. pal[i].class, "button", { text = pal[i].label })
+    if b then
+      local cls, label, w, h = pal[i].class, pal[i].label, pal[i].w, pal[i].h
+      b.onclick = function(self) add_control(cls, label, w, h) end
+      wet.attach(palette, b)
+    end
+  end
+end
+
+-- Properties panel: one label + one textbox per editable field.
+local FIELDS = { "left", "top", "w", "h", "text", "handler" }
+
+local function show_props()
+  for _, field in ipairs(FIELDS) do
+    local row_id = "prop_" .. field
+    local row = wet.find(row_id)
+    if not row then
+      row = make(row_id, "stack", { orient = 2, spacing = 2 })
+      if row then
+        local lbl = make(row_id .. "_lbl", "label", { text = field, w = 48, h = 20 })
+        local val = make(row_id .. "_val", "textbox", { w = 96, h = 20 })
+        wet.attach(row, lbl)
+        wet.attach(row, val)
+        val.ontextchanged = function(self)
+          if sel then
+            vws.set(sel, field, self.text)
+            rebuild()
+          end
+        end
+        wet.attach(props, row)
+      end
+    end
+    local box = wet.find(row_id .. "_val")
+    if box then
+      local v = ""
+      if sel then v = tostring(vws.get(sel, field) or "") end
+      box.text = v
+    end
+  end
+end
+
+-- Surface interaction: click selects, drag moves.
+surface.onmousedown = function(self, ev)
+  local id = vws.at(ev.x, ev.y)
+  if id then
+    sel = id
+    drag = { id = id, dx = ev.x - vws.get(id, "left"),
+                        dy = ev.y - vws.get(id, "top") }
+    say("selected " .. id)
+    show_props()
+  else
+    sel = nil
+    say("no control here")
+    show_props()
+  end
+end
+surface.onmousemove = function(self, ev)
+  if drag then
+    local nx = ev.x - drag.dx
+    local ny = ev.y - drag.dy
+    if vws.move(drag.id, nx, ny) then
+      local w = wet.find(drag.id)
+      if w then w.left, w.top = nx, ny end
+    end
+  end
+end
+surface.onmouseup = function(self, ev) drag = nil end
+
+show_props()
+say("ready")

@@ -14,6 +14,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* Set the form error sink (vws_form.c owns the buffer). */
+void vws_form_set_error(const char *msg);
+
 /* ---------------------------------------------------------- source scanning */
 /*
  * The .frm guarantee: user code survives a re-emit.  A .vws file is Lua, so a

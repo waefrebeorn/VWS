@@ -24,8 +24,10 @@ WET_SRCS := $(WET)/wet_widget.c $(WET)/wet_layout.c $(WET)/wet_render.c \
 
 VWS_SRCS := vws_form.c vws_emit.c vws_load.c
 
+VWS_LUA_SRCS := vws_form.c vws_emit.c vws_load.c vws_lua.c $(WET)/wet_lua.c
+
 .PHONY: all test clean
-all: build/test_vws
+all: build/test_vws build/test_vws_designer
 
 build:
 	mkdir -p build
@@ -34,8 +36,14 @@ build/test_vws: vws_selftest.c $(VWS_SRCS) $(WET_SRCS) $(WUA_SRCS) \
                 $(WET)/hosted/vbe_shim.c | build
 	$(CC) $(CFLAGS) -I. -I$(WET) -I$(WUA) $^ $(LDLIBS) -o $@
 
-test: build/test_vws
+# The designer applet: .WET + VWS in one interpreter.
+build/test_vws_designer: vws_designer_test.c $(VWS_LUA_SRCS) $(WET_SRCS) \
+                         $(WUA_SRCS) $(WET)/hosted/vbe_shim.c | build
+	$(CC) $(CFLAGS) -I. -I$(WET) -I$(WUA) $^ $(LDLIBS) -o $@
+
+test: build/test_vws build/test_vws_designer
 	./build/test_vws
+	./build/test_vws_designer
 
 clean:
 	rm -rf build
