@@ -190,10 +190,77 @@ static const TDef T_PROGRESS = {
     PROGRESS_HANDLERS, (int)(sizeof PROGRESS_HANDLERS / sizeof PROGRESS_HANDLERS[0]),
 };
 
+/* --- Calculator -------------------------------------------------------- */
+/*
+ * A whole working PROGRAM, not just a layout: a four-function calculator whose
+ * buttons feed a display and whose '=' evaluates the expression.  The evaluator
+ * lives INSIDE the handler (a nested local) because a template's handler stubs
+ * are emitted as separate functions -- there is nowhere else to put a helper.
+ *
+ * Buttons share one handler and are distinguished by self.text, so adding a
+ * key is a one-line change to the control table.
+ */
+static const TCtrl CALC_CTRLS[] = {
+    { "Display", "label", "0",  NULL,  16,  16, 368, 40 },
+    /* row 1 */ { "KeyC",   "button", "C", "Key",  16,  72, 72, 44 },
+                { "KeyPct", "button", "%", "Key", 112,  72, 72, 44 },
+                { "KeyDiv", "button", "/", "Key", 208,  72, 72, 44 },
+                { "KeyMul", "button", "*", "Key", 304,  72, 72, 44 },
+    /* row 2 */ { "Key7",   "button", "7", "Key",  16, 124, 72, 44 },
+                { "Key8",   "button", "8", "Key", 112, 124, 72, 44 },
+                { "Key9",   "button", "9", "Key", 208, 124, 72, 44 },
+                { "KeySub", "button", "-", "Key", 304, 124, 72, 44 },
+    /* row 3 */ { "Key4",   "button", "4", "Key",  16, 176, 72, 44 },
+                { "Key5",   "button", "5", "Key", 112, 176, 72, 44 },
+                { "Key6",   "button", "6", "Key", 208, 176, 72, 44 },
+                { "KeyAdd", "button", "+", "Key", 304, 176, 72, 44 },
+    /* row 4 */ { "Key1",   "button", "1", "Key",  16, 228, 72, 44 },
+                { "Key2",   "button", "2", "Key", 112, 228, 72, 44 },
+                { "Key3",   "button", "3", "Key", 208, 228, 72, 44 },
+                { "KeyEq",  "button", "=", "Key", 304, 228, 72, 44 },
+    /* row 5 */ { "Key0",   "button", "0", "Key",  16, 280, 72, 44 },
+                { "KeyDot", "button", ".", "Key", 112, 280, 72, 44 },
+};
+static const THandler CALC_HANDLERS[] = {
+    { "Key",
+      "  local d = wet.find('Display')\n"
+      "  local k = self.text\n"
+      "  if k == 'C' then d.text = '0'; return end\n"
+      "  if k == '%' then d.text = tostring(tonumber(d.text) / 100); return end\n"
+      "  if k == '=' then\n"
+      "    local nums, ops, cur = {}, {}, ''\n"
+      "    for c in d.text:gmatch('.') do\n"
+      "      if c == '+' or c == '-' or c == '*' or c == '/' then\n"
+      "        nums[#nums + 1] = tonumber(cur); ops[#ops + 1] = c; cur = ''\n"
+      "      else cur = cur .. c end\n"
+      "    end\n"
+      "    nums[#nums + 1] = tonumber(cur)\n"
+      "    local n2, o2 = { nums[1] }, {}\n"
+      "    for i = 1, #ops do\n"
+      "      if ops[i] == '*' then n2[#n2] = n2[#n2] * nums[i + 1]\n"
+      "      elseif ops[i] == '/' then n2[#n2] = n2[#n2] / nums[i + 1]\n"
+      "      else n2[#n2 + 1] = nums[i + 1]; o2[#o2 + 1] = ops[i] end\n"
+      "    end\n"
+      "    local acc = n2[1]\n"
+      "    for i = 1, #o2 do\n"
+      "      if o2[i] == '+' then acc = acc + n2[i + 1] else acc = acc - n2[i + 1] end\n"
+      "    end\n"
+      "    d.text = tostring(acc)\n"
+      "    return\n"
+      "  end\n"
+      "  d.text = (d.text == '0' and k) or (d.text .. k)\n" },
+};
+static const TDef T_CALC = {
+    "calculator", "Calculator", "A working four-function calculator.",
+    400, 340, "Calculator",
+    CALC_CTRLS, (int)(sizeof CALC_CTRLS / sizeof CALC_CTRLS[0]),
+    CALC_HANDLERS, (int)(sizeof CALC_HANDLERS / sizeof CALC_HANDLERS[0]),
+};
+
 /* --- the library, in picker order -------------------------------------- */
 static const TDef *const TEMPLATES[] = {
     &T_BLANK, &T_DIALOG, &T_LIST, &T_SETTINGS,
-    &T_TOOLBAR, &T_FORM, &T_IMAGE, &T_PROGRESS,
+    &T_TOOLBAR, &T_FORM, &T_IMAGE, &T_PROGRESS, &T_CALC,
 };
 
 #define TEMPLATE_COUNT ((int)(sizeof TEMPLATES / sizeof TEMPLATES[0]))
@@ -268,15 +335,24 @@ static bool put(Buf *b, const char *s) {
 }
 
 static bool putf(Buf *b, const char *fmt, ...) {
-    char buf[512];
     va_list ap;
+
+    /* First pass: how long is this piece?  vsnprintf(NULL, 0, ...) is C99 and
+     * returns the length without writing. */
     va_start(ap, fmt);
-    int n = vsnprintf(buf, sizeof buf, fmt, ap);
+    int n = vsnprintf(NULL, 0, fmt, ap);
     va_end(ap);
-    if (n < 0) return false;
-    if ((size_t)n >= sizeof buf) n = sizeof buf - 1;
+    if (n <= 0) return n == 0;   /* an empty piece is a success, not a failure */
+
+    /* A single piece can be long -- a big handler body, a wide control table.
+     * reserve() guarantees n bytes plus the NUL, so the second pass writes
+     * straight into the destination.  (The old fixed 512-byte stack buffer
+     * silently truncated anything longer.) */
     if (!reserve(b, (size_t)n)) return false;
-    memcpy(b->data + b->len, buf, (size_t)n);
+
+    va_start(ap, fmt);
+    vsnprintf(b->data + b->len, (size_t)n + 1, fmt, ap);
+    va_end(ap);
     b->len += (size_t)n;
     return true;
 }
