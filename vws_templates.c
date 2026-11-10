@@ -13,6 +13,7 @@
 #include "vws_templates.h"
 
 #include <stdarg.h>
+#include <stdio.h>    /* vsnprintf -- putf() needs the prototype */
 #include <stdlib.h>
 #include <string.h>
 
@@ -257,10 +258,39 @@ static const TDef T_CALC = {
     CALC_HANDLERS, (int)(sizeof CALC_HANDLERS / sizeof CALC_HANDLERS[0]),
 };
 
+/* --- Theme Studio ------------------------------------------------------ */
+/*
+ * A program that restyles the WHOLE desktop from inside a .wet applet: it
+ * calls wet.theme(name), the same binding the shell uses.  One shared handler,
+ * dispatched on self.text, so adding a theme is one control-table line.
+ */
+static const TCtrl THEME_CTRLS[] = {
+    { "Current", "label", "Theme: light", NULL,            16,  16, 348, 24 },
+    { "TLight",  "button", "Light", "Pick",                16,  60,  66, 36 },
+    { "TWin98",  "button", "Win98", "Pick",                86,  60,  66, 36 },
+    { "TXP",     "button", "XP",    "Pick",               156,  60,  66, 36 },
+    { "TWuBu",   "button", "WuBu",  "Pick",               226,  60,  66, 36 },
+    { "TDark",   "button", "Dark",  "Pick",               296,  60,  66, 36 },
+    { "Hint",    "label", "The whole desktop restyles.", NULL, 16, 116, 348, 20 },
+};
+static const THandler THEME_HANDLERS[] = {
+    { "Pick",
+      "  local name = string.lower(self.text)\n"
+      "  local active = wet.theme(name)\n"
+      "  wet.find('Current').text = active and ('Theme: ' .. active)\n"
+      "                                 or ('No theme: ' .. name)" },
+};
+static const TDef T_THEME = {
+    "themes", "Theme Studio", "Restyle the whole desktop from one applet.",
+    380, 160, "Theme Studio",
+    THEME_CTRLS, (int)(sizeof THEME_CTRLS / sizeof THEME_CTRLS[0]),
+    THEME_HANDLERS, (int)(sizeof THEME_HANDLERS / sizeof THEME_HANDLERS[0]),
+};
+
 /* --- the library, in picker order -------------------------------------- */
 static const TDef *const TEMPLATES[] = {
     &T_BLANK, &T_DIALOG, &T_LIST, &T_SETTINGS,
-    &T_TOOLBAR, &T_FORM, &T_IMAGE, &T_PROGRESS, &T_CALC,
+    &T_TOOLBAR, &T_FORM, &T_IMAGE, &T_PROGRESS, &T_CALC, &T_THEME,
 };
 
 #define TEMPLATE_COUNT ((int)(sizeof TEMPLATES / sizeof TEMPLATES[0]))
