@@ -4,6 +4,7 @@
  * emitter and the loader are separate concerns.
  */
 #include "vws_internal.h"
+#include "vws_templates.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,6 +19,29 @@ VwsForm *vws_form_new(const char *title, int width, int height) {
     f->width  = width  > 0 ? width  : 400;
     f->height = height > 0 ? height : 300;
     return f;
+}
+
+/* ---------------------------------------------------- new from a template */
+
+static void add_template_ctrl(void *ud, const char *id, const char *cls,
+                              const char *text, const char *handler,
+                              int left, int top, int w, int h) {
+    VwsForm *f = (VwsForm *)ud;
+    VwsControl *c = vws_form_add(f, id, cls, left, top, w, h);
+    if (!c) return;
+    if (text && text[0]) vws_form_set_text(f, id, text);
+    if (handler && handler[0]) vws_form_set_handler(f, id, handler);
+}
+
+bool vws_form_load_template(const char *name, VwsForm *f) {
+    if (!f) return false;
+    const VwsTemplate *t = vws_template_find(name);
+    if (!t) return false;
+    snprintf(f->title, sizeof f->title, "%s", vws_template_title(name));
+    f->width  = t->def_w;
+    f->height = t->def_h;
+    vws_template_foreach_ctrl(name, add_template_ctrl, f);
+    return true;
 }
 
 static void free_handlers(VwsForm *f) {

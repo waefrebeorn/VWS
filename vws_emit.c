@@ -102,6 +102,9 @@ void vws_emit_applet(const VwsForm *f, VwsSource *handlers, char **out) {
                 emit_line(&buf, &cap, &len, ", text=");
                 emit_lua_string(&buf, &cap, &len, c->text);
             }
+            if (c->handler[0]) {
+                emit_line(&buf, &cap, &len, ", onclick=%s", c->handler);
+            }
             emit_line(&buf, &cap, &len, " },\n");
         }
         emit_line(&buf, &cap, &len, "    },\n");

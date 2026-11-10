@@ -92,6 +92,11 @@ char *vws_form_emit(const VwsForm *f);
  * collect any user function bodies so a re-emit preserves them. */
 VwsForm *vws_form_load(const char *path, char *err, size_t err_cap);
 
+/* Populate a form from a template in the library (the designer's
+ * "New from template").  Sets the title, the size, every control and its
+ * handler name.  Returns false for an unknown template name or a NULL form. */
+bool vws_form_load_template(const char *name, VwsForm *f);
+
 /* The last load/emit error, or NULL. */
 const char *vws_form_error(void);
 
