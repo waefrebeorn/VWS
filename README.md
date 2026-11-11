@@ -7,6 +7,11 @@ VB's real contribution was never the language — it was the **loop**: drag a
 control onto a form, double-click it, write the handler, F5. That is what VWS
 slerms. The language is Lua (already the .WET surface); VWS adds the designer.
 
+
+> **~WuBu~ AGI** — one system, many repositories. This is the **forms designer**. The Body is [WuBuOS](https://github.com/waefrebeorn/WuBuOS), the Brain wubuwizard, the Compiler WuBuNOS.
+
+
+> **~WuBu~ AGI** — one system, many repositories. This is the **forms designer**. The Body is [WuBuOS](https://github.com/waefrebeorn/WuBuOS), the Brain wubuwizard, the Compiler WuBuNOS.
 ## The file model
 
 A `.vws` file **is** a `.wet` Lua script. One representation, runnable and
