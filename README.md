@@ -72,3 +72,15 @@ preservation, and the failure paths.
 This is the document model, the emitter and the loader — the round trip is
 proven. The interactive designer surface (drag/drop, the properties grid, the
 event picker) is the next slice; it consumes exactly this API.
+
+## Standard
+
+- **Layer:** VWS form designer (GUI tool)
+- **Build:** `make`
+- **Verify:** `make test`
+- **Docs:** no `docs/` yet -- the parent's `docs/compendium/04-roadmap/submodule-standard.md` is the front door
+- **Provenance:** own C11; no vendored third-party source without a note
+
+Part of the ~WuBu~ tree: this repository is held to the same conventions as the
+parent. See the parent's `docs/compendium/04-roadmap/submodule-standard.md` for the
+checklist and why each item exists.
