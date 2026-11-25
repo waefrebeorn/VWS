@@ -84,3 +84,16 @@ event picker) is the next slice; it consumes exactly this API.
 Part of the ~WuBu~ tree: this repository is held to the same conventions as the
 parent. See the parent's `docs/compendium/04-roadmap/submodule-standard.md` for the
 checklist and why each item exists.
+
+## Dependency: the .WET toolkit (one copy, never a vendored second)
+
+This repo builds against the `wet` toolkit that WuBuOS links, at `../wet`. It used to
+vendor its own copy under `externals/wet`; that copy fell one commit behind, so a fix made
+in `wet` was invisible here and a `wua` API (`wb_lv_call_multi`) was missing entirely.
+The vendored copy has been removed.
+
+    git clone https://github.com/waefrebeorn/wet ../wet     # beside this repo, or
+    make WET=/path/to/wet test
+
+If the toolkit is missing, `make` stops with the path it looked for, by name -- it does not
+quietly build an older copy.

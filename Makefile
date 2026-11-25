@@ -12,8 +12,20 @@ CC      ?= cc
 CFLAGS  ?= -O0 -g -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra
 LDLIBS  ?= -lm
 
-WET      := externals/wet
-WUA      := $(WET)/externals/wua/src
+# Which WET?  Inside WuBuOS, ../wet is the toolkit the rest of the OS links, so
+# prefer it -- compiling the vendored copy instead is how this repo silently drifted one
+# commit behind (see docs: vendor drift). Cloned on its own, there is no ../wet and the
+# vendored copy is used, which keeps the repo buildable standalone.
+# Override either way:  make WET=/path/to/wet test
+WET ?= ../wet
+WUA ?= $(WET)/externals/wua/src
+
+# One copy, or none: this repo used to vendor its own wet+wua, which drifted a commit
+# behind the toolkit WuBuOS links. If the toolkit is missing, say so by name rather than
+# silently compiling an older copy.
+ifeq ($(wildcard $(WET)/wet_widget.c),)
+$(error no .WET toolkit at WET=$(WET); clone waefrebeorn/wet beside vws or pass WET=/path/to/wet)
+endif
 WUA_SRCS := $(WUA)/wb_lv_arena.c $(WUA)/wb_lv_coro.c $(WUA)/wb_lv_eval.c \
             $(WUA)/wb_lv_host.c $(WUA)/wb_lv_lex.c $(WUA)/wb_lv_parse.c \
             $(WUA)/wb_lv_value.c $(WUA)/wb_lv_stdlib.c $(WUA)/wb_lv_string.c
